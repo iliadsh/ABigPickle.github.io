@@ -2,22 +2,22 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Series on ABigPickle</title>
-    <link>https://example.com/series/</link>
+    <link>https://abigpickle.github.io/series/</link>
     <description>Recent content in Series on ABigPickle</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>&lt;a href=&#34;https://creativecommons.org/licenses/by-nc/4.0/&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;CC BY-NC 4.0&lt;/a&gt;</copyright>
     <lastBuildDate>Fri, 05 Mar 2021 00:00:00 +0000</lastBuildDate>
     
-	<atom:link href="https://example.com/series/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="https://abigpickle.github.io/series/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
       <title>SerenityOS</title>
-      <link>https://example.com/series/serenityos/</link>
+      <link>https://abigpickle.github.io/series/serenityos/</link>
       <pubDate>Fri, 05 Mar 2021 00:00:00 +0000</pubDate>
       
-      <guid>https://example.com/series/serenityos/</guid>
+      <guid>https://abigpickle.github.io/series/serenityos/</guid>
       <description></description>
     </item>
     
