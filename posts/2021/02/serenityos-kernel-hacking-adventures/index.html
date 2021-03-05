@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="author" content="map[name:ABigPickle]">
+<meta name="description" content="Memory corruption to root privileges." />
+<meta name="keywords" content=", development, hacking, sernityos, kernel, LPE" />
+<meta name="robots" content="noodp" />
+<meta name="theme-color" content="" />
+<link rel="canonical" href="https://example.com/posts/2021/02/serenityos-kernel-hacking-adventures/" />
+
+
+    <title>
+        
+            SerenityOS: Kernel Hacking Adventures :: ABigPickle  — Hello Friend NG Theme
+        
+    </title>
+
+
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/3.5.0/css/flag-icon.min.css" rel="stylesheet"
+    type="text/css">
+
+
+
+<link rel="stylesheet" href="https://example.com/main.de188b3201233c251f4fd6306dbd2cb41e408fb8846c09781b2925de7df5025c.css">
+
+
+
+
+    <link rel="apple-touch-icon" sizes="180x180" href="https://example.com/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="https://example.com/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="https://example.com/favicon-16x16.png">
+    <link rel="manifest" href="https://example.com/site.webmanifest">
+    <link rel="mask-icon" href="https://example.com/safari-pinned-tab.svg" color="#1b1c1d">
+    <link rel="shortcut icon" href="https://example.com/favicon.ico">
+    <meta name="msapplication-TileColor" content="#1b1c1d">
+    <meta name="theme-color" content="#1b1c1d">
+
+
+
+<meta itemprop="name" content="SerenityOS: Kernel Hacking Adventures">
+<meta itemprop="description" content="Memory corruption to root privileges.">
+<meta itemprop="datePublished" content="2021-02-02T00:00:00&#43;00:00" />
+<meta itemprop="dateModified" content="2021-02-02T00:00:00&#43;00:00" />
+<meta itemprop="wordCount" content="2349">
+<meta itemprop="image" content="https://example.com"/>
+
+
+
+<meta itemprop="keywords" content="development,hacking,sernityos,kernel,LPE," />
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:image" content="https://example.com"/>
+
+<meta name="twitter:title" content="SerenityOS: Kernel Hacking Adventures"/>
+<meta name="twitter:description" content="Memory corruption to root privileges."/>
+
+
+
+
+    <meta property="og:title" content="SerenityOS: Kernel Hacking Adventures" />
+<meta property="og:description" content="Memory corruption to root privileges." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://example.com/posts/2021/02/serenityos-kernel-hacking-adventures/" />
+<meta property="og:image" content="https://example.com"/>
+<meta property="article:published_time" content="2021-02-02T00:00:00+00:00" />
+<meta property="article:modified_time" content="2021-02-02T00:00:00+00:00" />
+
+
+
+
+
+    <meta property="article:section" content="Hacking" />
+
+    <meta property="article:section" content="Kernel" />
+
+
+
+    <meta property="article:published_time" content="2021-02-02 00:00:00 &#43;0000 UTC" />
+
+
+
+
+
+
+
+
+    </head>
+
+    
+        <body>
+    
+    
+        <div class="container">
+            <header class="header">
+    <span class="header__inner">
+        <a href="https://example.com/" style="text-decoration: none;">
+    <div class="logo">
+        
+            <span class="logo__mark">&gt;</span>
+            <span class="logo__text">$ cd /home/</span>
+            <span class="logo__cursor" style=
+                  "
+                   
+                   ">
+            </span>
+        
+    </div>
+</a>
+
+
+        <span class="header__right">
+            
+                <nav class="menu">
+    <ul class="menu__inner"><li><a href="https://example.com/about/">About</a></li><li><a href="https://example.com/posts/">Posts</a></li><li><a href="https://example.com/projects/">Projects</a></li>
+    </ul>
+</nav>
+
+                <span class="menu-trigger">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M0 0h24v24H0z" fill="none"/>
+                        <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+                    </svg>
+                </span>
+            
+        </span>
+    </span>
+</header>
+
+
+            <div class="content">
+                
+  <main class="post">
+
+    <div class="post-info">
+      <p>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-clock">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        12 minutes
+
+        
+      </p>
+    </div>
+
+    <article>
+      <h1 class="post-title">
+        <a href="https://example.com/posts/2021/02/serenityos-kernel-hacking-adventures/">SerenityOS: Kernel Hacking Adventures</a>
+      </h1>
+
+      
+        <div class="post-excerpt">Memory corruption to root privileges.</div>
+      
+
+      
+
+      <div class="post-content">
+        <p><img src="https://styles.redditmedia.com/t5_11p1s4/styles/communityIcon_82qz1x1k5uj41.png" alt="SerenityOS Logo"></p>
+<h1 id="hello-friends">&ldquo;Hello, Friends!&rdquo;</h1>
+<p>Recently, I became interested in a hobby operating system called <strong>SerenityOS</strong>. It&rsquo;s largely made by one guy, Andreas Kling, with a pretty impressive community behind it. Like many others, I heard about it from LiveOverflow&rsquo;s <a href="https://www.youtube.com/watch?v=qUh507Na9nk">video</a> on a really cool ptrace/execve race-condition exploit for this very OS and fell down the rabbit hole. I started watching Andreas&rsquo;s own videos about the development (and exploitation) he does on the project and was pretty shocked about how easy they were to follow. Honestly, this is the perfect time to get involved with the project, either from a development or a security standpoint. The project is fairly young, so the codebase isn&rsquo;t too complex, but it&rsquo;s also matured enough to a point where interesting exploits can exist in the first place.</p>
+<p>After watching Andreas&rsquo;s <a href="https://www.youtube.com/watch?v=LMvjaoBLPxA">video</a> on a JS engine bug, I decided to go look for some bugs myself. I hadn&rsquo;t even fully setup the project yet before I noticed another very similar bug to the one in the video. It was another integer overflow in the <code>TypedArray</code> constructor, and gave a very powerful read/write primitive.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp">
+<span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">initialize_typed_array_from_array_buffer</span>(GlobalObject<span style="color:#f92672">&amp;</span> global_object, TypedArrayBase<span style="color:#f92672">&amp;</span> typed_array, ArrayBuffer<span style="color:#f92672">&amp;</span> array_buffer, Value byte_offset, Value length)
+{
+    <span style="color:#75715e">// 22.2.5.1.3 InitializeTypedArrayFromArrayBuffer, https://tc39.es/ecma262/#sec-initializetypedarrayfromarraybuffer
+</span><span style="color:#75715e"></span>    <span style="color:#66d9ef">auto</span> element_size <span style="color:#f92672">=</span> typed_array.element_size();
+    <span style="color:#66d9ef">auto</span> offset <span style="color:#f92672">=</span> byte_offset.to_index(global_object);
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>    size_t new_length { <span style="color:#ae81ff">0</span> };
+    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>length.is_undefined()) {
+        new_length <span style="color:#f92672">=</span> length.to_index(global_object);
+        <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>    }
+    <span style="color:#66d9ef">auto</span> buffer_byte_length <span style="color:#f92672">=</span> array_buffer.byte_length();
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>    new_byte_length <span style="color:#f92672">=</span> new_length <span style="color:#f92672">*</span> element_size;
+    <span style="color:#66d9ef">if</span> (offset <span style="color:#f92672">+</span> new_byte_length <span style="color:#f92672">&gt;</span> buffer_byte_length) { <span style="color:#75715e">//Can overflow and pass the check!
+</span><span style="color:#75715e"></span>        <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>        <span style="color:#66d9ef">return</span>;
+    }
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>    typed_array.set_viewed_array_buffer(<span style="color:#f92672">&amp;</span>array_buffer);
+    typed_array.set_byte_length(new_byte_length); 
+    typed_array.set_byte_offset(offset);
+    typed_array.set_array_length(new_byte_length <span style="color:#f92672">/</span> element_size);
+}
+</code></pre></div><p>It could be exploited with something like this:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-js" data-lang="js"><span style="color:#a6e22e">a</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">Uint32Array</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">ArrayBuffer</span>(<span style="color:#ae81ff">0</span>), <span style="color:#ae81ff">4</span>, <span style="color:#ae81ff">1024</span><span style="color:#f92672">*</span><span style="color:#ae81ff">1024</span><span style="color:#f92672">*</span><span style="color:#ae81ff">1024</span><span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>);
+<span style="color:#a6e22e">a</span>[<span style="color:#ae81ff">0x1337</span>] <span style="color:#f92672">=</span> <span style="color:#ae81ff">0x41</span>; <span style="color:#75715e">//BOOM!
+</span></code></pre></div><p>However after tinkering with it for a bit, I decided to <a href="https://github.com/SerenityOS/serenity/commit/f6c6047e49f1517778f5565681fb64750b14bf60">report</a> it and leave it be instead <em>(and subsequently broke vakzz&rsquo;s awesome <a href="https://devcraft.io/2021/02/11/serenityos-writing-a-full-chain-exploit.html">exploit chain</a>, sorry!)</em>. I just wasn&rsquo;t really that interested in making a userland exploit, especially one which already basically had a writeup. I might return to the JS engine again after it&rsquo;s a bit more feature rich, like a JIT compiler (what can go wrong?), but for the time being I set my sights on the kernel.</p>
+<p>A word of warning, <em>I have absolutely no idea what I&rsquo;m doing in the kernel.</em> The reason I picked up this project in the first place was to learn something about Operating Systems, and what better way to do that than by attempting to break one. I tried many things while trying to make an exploit, and hit just as many snags. So, this post is less of a vulnerability writeup and more of my journey while trying to leverage this bug into something useful. I hope you learn something, or at least find my attempts entertaining.</p>
+<h1 id="the-bug">The Bug</h1>
+<p>An OS kernel is pretty massive, so if I wanted any chance of finding something exploitable, I had to limit my scope. I eventually settled on exploring the IPv4 networking stack for two main reasons, it didn&rsquo;t seem to recieve much attention in terms of commits recently, and remote code execution at the ring 0 would be pretty dope :^). Luckily, it seemed to follow the standard POSIX way of creating and using sockets, so I didn&rsquo;t have to spend any time learning the API. Instead, I went straight to looking through the code that actually dealt with any user data, mainly the <code>send()</code> and <code>recv()</code> syscalls.</p>
+<p>The <code>send()</code> syscall is implemented as follows:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp">ssize_t Process<span style="color:#f92672">::</span>sys<span style="color:#960050;background-color:#1e0010">$</span>sendmsg(<span style="color:#66d9ef">int</span> sockfd, Userspace<span style="color:#f92672">&lt;</span><span style="color:#66d9ef">const</span> <span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">msghdr</span><span style="color:#f92672">*&gt;</span> user_msg, <span style="color:#66d9ef">int</span> flags)
+{
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>    Vector<span style="color:#f92672">&lt;</span>iovec, <span style="color:#ae81ff">1</span><span style="color:#f92672">&gt;</span> iovs;
+    iovs.resize(msg.msg_iovlen);
+    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>copy_n_from_user(iovs.data(), msg.msg_iov, msg.msg_iovlen))
+        <span style="color:#66d9ef">return</span> <span style="color:#f92672">-</span>EFAULT;
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>    <span style="color:#66d9ef">auto</span> description <span style="color:#f92672">=</span> file_description(sockfd);
+    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>description)
+        <span style="color:#66d9ef">return</span> <span style="color:#f92672">-</span>EBADF;
+    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>description<span style="color:#f92672">-&gt;</span>is_socket())
+        <span style="color:#66d9ef">return</span> <span style="color:#f92672">-</span>ENOTSOCK;
+    <span style="color:#66d9ef">auto</span><span style="color:#f92672">&amp;</span> socket <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>description<span style="color:#f92672">-&gt;</span>socket();
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>    <span style="color:#66d9ef">auto</span> data_buffer <span style="color:#f92672">=</span> UserOrKernelBuffer<span style="color:#f92672">::</span>for_user_buffer((u8<span style="color:#f92672">*</span>)iovs[<span style="color:#ae81ff">0</span>].iov_base, iovs[<span style="color:#ae81ff">0</span>].iov_len);
+    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>data_buffer.has_value())
+        <span style="color:#66d9ef">return</span> <span style="color:#f92672">-</span>EFAULT;
+    <span style="color:#66d9ef">auto</span> result <span style="color:#f92672">=</span> socket.sendto(<span style="color:#f92672">*</span>description, data_buffer.value(), iovs[<span style="color:#ae81ff">0</span>].iov_len, flags, user_addr, addr_length);
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>}
+</code></pre></div><p>It does a few basic checks, like making sure the file descriptor you passed is actually a socket and that the message pointer + length is actually in userspace, then passes it off to another socket function. <code>IPv4Socket::send_to()</code> also doesn&rsquo;t do anything special other than pass it off to the sepecific protocol&rsquo;s send handler.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp">KResultOr<span style="color:#f92672">&lt;</span>size_t<span style="color:#f92672">&gt;</span> IPv4Socket<span style="color:#f92672">::</span>sendto(FileDescription<span style="color:#f92672">&amp;</span>, <span style="color:#66d9ef">const</span> UserOrKernelBuffer<span style="color:#f92672">&amp;</span> data, size_t data_length, <span style="color:#a6e22e">[[maybe_unused]]</span> <span style="color:#66d9ef">int</span> flags, Userspace<span style="color:#f92672">&lt;</span><span style="color:#66d9ef">const</span> sockaddr<span style="color:#f92672">*&gt;</span> addr, socklen_t addr_length)
+{
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>    <span style="color:#66d9ef">if</span> (addr) {
+        <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>    }
+
+    <span style="color:#66d9ef">auto</span> routing_decision <span style="color:#f92672">=</span> route_to(m_peer_address, m_local_address, bound_interface());
+    <span style="color:#66d9ef">if</span> (routing_decision.is_zero())
+        <span style="color:#66d9ef">return</span> EHOSTUNREACH;
+
+    <span style="color:#66d9ef">if</span> (m_local_address.to_u32() <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>)
+        m_local_address <span style="color:#f92672">=</span> routing_decision.adapter<span style="color:#f92672">-&gt;</span>ipv4_address();
+
+    <span style="color:#66d9ef">int</span> rc <span style="color:#f92672">=</span> allocate_local_port_if_needed();
+    <span style="color:#66d9ef">if</span> (rc <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">0</span>)
+        <span style="color:#66d9ef">return</span> rc;
+
+    <span style="color:#66d9ef">if</span> (type() <span style="color:#f92672">==</span> SOCK_RAW) {
+        <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>    }
+
+    <span style="color:#66d9ef">auto</span> nsent_or_error <span style="color:#f92672">=</span> protocol_send(data, data_length);
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>}
+</code></pre></div><p>Something that made me uneasy so far is the apparent lack of buffer checks. Sure, it wasn&rsquo;t doing anything silly like blindly copying user data, but the only checking it did of the length was making sure it wasn&rsquo;t touching kernel memory, which really is not that strict of a requirement. Let&rsquo;s continue down the chain of calls with <code>TCPSocket::protocol_send()</code>.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp">KResultOr<span style="color:#f92672">&lt;</span>size_t<span style="color:#f92672">&gt;</span> TCPSocket<span style="color:#f92672">::</span>protocol_send(<span style="color:#66d9ef">const</span> UserOrKernelBuffer<span style="color:#f92672">&amp;</span> data, size_t data_length)
+{
+    <span style="color:#66d9ef">int</span> err <span style="color:#f92672">=</span> send_tcp_packet(TCPFlags<span style="color:#f92672">::</span>PUSH <span style="color:#f92672">|</span> TCPFlags<span style="color:#f92672">::</span>ACK, <span style="color:#f92672">&amp;</span>data, data_length);
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>}
+</code></pre></div><p>This was a huge red flag. Instead of doing any data segmentation to send as multiple packets, it was just blindly sending the whole thing as one huge packet. Nothing so far was actually vulnerable, but the naivity so far didn&rsquo;t leave me with much faith that the later functions were going to deal with all the edge cases themselves. Finally, we reach <code>TCPSocket::send_tcp_packet()</code>.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp">KResult TCPSocket<span style="color:#f92672">::</span>send_tcp_packet(u16 flags, <span style="color:#66d9ef">const</span> UserOrKernelBuffer<span style="color:#f92672">*</span> payload, size_t payload_size)
+{
+    <span style="color:#66d9ef">const</span> size_t buffer_size <span style="color:#f92672">=</span> <span style="color:#66d9ef">sizeof</span>(TCPPacket) <span style="color:#f92672">+</span> payload_size;
+    <span style="color:#66d9ef">alignas</span>(TCPPacket) u8 buffer[buffer_size];
+    <span style="color:#66d9ef">new</span> (buffer) TCPPacket;
+    <span style="color:#66d9ef">auto</span><span style="color:#f92672">&amp;</span> tcp_packet <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(TCPPacket<span style="color:#f92672">*</span>)(buffer);
+    ASSERT(local_port());
+    tcp_packet.set_source_port(local_port());
+    tcp_packet.set_destination_port(peer_port());
+    tcp_packet.set_window_size(<span style="color:#ae81ff">1024</span>);
+    tcp_packet.set_sequence_number(m_sequence_number);
+    tcp_packet.set_data_offset(<span style="color:#66d9ef">sizeof</span>(TCPPacket) <span style="color:#f92672">/</span> <span style="color:#66d9ef">sizeof</span>(u32));
+    tcp_packet.set_flags(flags);
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>    <span style="color:#66d9ef">if</span> (payload <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">!</span>payload<span style="color:#f92672">-&gt;</span>read(tcp_packet.payload(), payload_size))
+        <span style="color:#66d9ef">return</span> EFAULT;
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>    <span style="color:#66d9ef">if</span> (tcp_packet.has_syn() <span style="color:#f92672">||</span> payload_size <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>) {
+        <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>        send_outgoing_packets();
+        <span style="color:#66d9ef">return</span> KSuccess;
+    }
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>}
+</code></pre></div><p>The first thing that jumped out to me here was the very first line, where it calculates the buffer size.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp"><span style="color:#66d9ef">const</span> size_t buffer_size <span style="color:#f92672">=</span> <span style="color:#66d9ef">sizeof</span>(TCPPacket) <span style="color:#f92672">+</span> payload_size;
+</code></pre></div><p>It seemed to allocate all of its memory using that result, but what if we passed a really, really big integer as the <code>payload_size</code>? The calculation would overflow, and the resulting allocations would be tiny, giving us a buffer overflow. Sadly, this wouldn&rsquo;t work, because of one of the checks it had previously done. Since it made sure our buffer + length was in userspace, any length that would actually result in an overflow here would certainly put us out of userspace, thus failing the check. I wasn&rsquo;t quite done with this bit of code yet, though. There were two lines I didn&rsquo;t fully understand:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp"><span style="color:#66d9ef">alignas</span>(TCPPacket) u8 buffer[buffer_size];
+<span style="color:#66d9ef">new</span> (buffer) TCPPacket;
+</code></pre></div><p>What is the <code>alignas</code> keyword? How was it creating an array like that with a runtime calculated size? What does passing <code>buffer</code> as a parameter to <code>new</code> do? After some brief docs searching, <code>alignas</code> was just an indication to align the memory to the size of the <code>TCPPacket</code> structure and passing <code>buffer</code> to <code>new</code> simply was telling it to put the allocation inside the buffer instead of using the heap. Slightly odd, but okay. However, the array creation still didn&rsquo;t make sense to me. If this was like a normal stack allocated array, was it dynamically resizing the stack frame? At this point, I decided to just hit it with some lengths and see what happened. I passed it ~2.5 billion and&hellip; it triple faulted. Just before it did though, the recently implemented Kernel Undefined Behaviour Sanitizer (KUBSAN) spit out this message:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp">[<span style="color:#960050;background-color:#1e0010">#</span><span style="color:#ae81ff">0</span> hax(<span style="color:#ae81ff">27</span><span style="color:#f92672">:</span><span style="color:#ae81ff">27</span>)]<span style="color:#f92672">:</span> KUBSAN: VLA bound not positive <span style="color:#960050;background-color:#1e0010">&#39;</span>ssizetype<span style="color:#960050;background-color:#1e0010">&#39;</span> (<span style="color:#ae81ff">32</span><span style="color:#f92672">-</span>bit)
+[<span style="color:#960050;background-color:#1e0010">#</span><span style="color:#ae81ff">0</span> hax(<span style="color:#ae81ff">27</span><span style="color:#f92672">:</span><span style="color:#ae81ff">27</span>)]<span style="color:#f92672">:</span> KUBSAN: at ..<span style="color:#f92672">/</span>Kernel<span style="color:#f92672">/</span>Net<span style="color:#f92672">/</span>TCPSocket.cpp, line <span style="color:#ae81ff">197</span>, column: <span style="color:#ae81ff">45</span>
+[<span style="color:#960050;background-color:#1e0010">#</span><span style="color:#ae81ff">0</span> hax(<span style="color:#ae81ff">27</span><span style="color:#f92672">:</span><span style="color:#ae81ff">27</span>)]<span style="color:#f92672">:</span> <span style="color:#ae81ff">0xc01e0708</span>  print_location <span style="color:#f92672">+</span><span style="color:#ae81ff">0xcc</span>
+[<span style="color:#960050;background-color:#1e0010">#</span><span style="color:#ae81ff">0</span> hax(<span style="color:#ae81ff">27</span><span style="color:#f92672">:</span><span style="color:#ae81ff">27</span>)]<span style="color:#f92672">:</span> <span style="color:#ae81ff">0xc018a36c</span>  Kernel<span style="color:#f92672">::</span>TCPSocket<span style="color:#f92672">::</span>send_tcp_packet(<span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">short</span>, Kernel<span style="color:#f92672">::</span>UserOrKernelBuffer <span style="color:#66d9ef">const</span><span style="color:#f92672">*</span>, <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">long</span>) <span style="color:#f92672">+</span><span style="color:#ae81ff">0x300</span>
+[<span style="color:#960050;background-color:#1e0010">#</span><span style="color:#ae81ff">0</span> hax(<span style="color:#ae81ff">27</span><span style="color:#f92672">:</span><span style="color:#ae81ff">27</span>)]<span style="color:#f92672">:</span> <span style="color:#ae81ff">0xc018a931</span>  Kernel<span style="color:#f92672">::</span>TCPSocket<span style="color:#f92672">::</span>protocol_send(Kernel<span style="color:#f92672">::</span>UserOrKernelBuffer <span style="color:#66d9ef">const</span><span style="color:#f92672">&amp;</span>, <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">long</span>) <span style="color:#f92672">+</span><span style="color:#ae81ff">0x3b</span>
+[<span style="color:#960050;background-color:#1e0010">#</span><span style="color:#ae81ff">0</span> hax(<span style="color:#ae81ff">27</span><span style="color:#f92672">:</span><span style="color:#ae81ff">27</span>)]<span style="color:#f92672">:</span> <span style="color:#ae81ff">0xc017ba83</span>  Kernel<span style="color:#f92672">::</span>IPv4Socket<span style="color:#f92672">::</span>sendto(Kernel<span style="color:#f92672">::</span>FileDescription<span style="color:#f92672">&amp;</span>, Kernel<span style="color:#f92672">::</span>UserOrKernelBuffer <span style="color:#66d9ef">const</span><span style="color:#f92672">&amp;</span>, <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">long</span>, <span style="color:#66d9ef">int</span>, AK<span style="color:#f92672">::</span>Userspace<span style="color:#f92672">&lt;</span>sockaddr <span style="color:#66d9ef">const</span><span style="color:#f92672">*&gt;</span>, <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">int</span>) <span style="color:#f92672">+</span><span style="color:#ae81ff">0x2d7</span>
+[<span style="color:#960050;background-color:#1e0010">#</span><span style="color:#ae81ff">0</span> hax(<span style="color:#ae81ff">27</span><span style="color:#f92672">:</span><span style="color:#ae81ff">27</span>)]<span style="color:#f92672">:</span> <span style="color:#ae81ff">0xc01c5986</span>  Kernel<span style="color:#f92672">::</span>Process<span style="color:#f92672">::</span>sys<span style="color:#960050;background-color:#1e0010">$</span>sendmsg(<span style="color:#66d9ef">int</span>, AK<span style="color:#f92672">::</span>Userspace<span style="color:#f92672">&lt;</span>msghdr <span style="color:#66d9ef">const</span><span style="color:#f92672">*&gt;</span>, <span style="color:#66d9ef">int</span>) <span style="color:#f92672">+</span><span style="color:#ae81ff">0x2dc</span>
+[<span style="color:#960050;background-color:#1e0010">#</span><span style="color:#ae81ff">0</span> hax(<span style="color:#ae81ff">27</span><span style="color:#f92672">:</span><span style="color:#ae81ff">27</span>)]<span style="color:#f92672">:</span> <span style="color:#ae81ff">0xc019e2c5</span>  syscall_handler <span style="color:#f92672">+</span><span style="color:#ae81ff">0x9db</span>
+[<span style="color:#960050;background-color:#1e0010">#</span><span style="color:#ae81ff">0</span> hax(<span style="color:#ae81ff">27</span><span style="color:#f92672">:</span><span style="color:#ae81ff">27</span>)]<span style="color:#f92672">:</span> <span style="color:#ae81ff">0xc019d8e2</span>  syscall_asm_entry <span style="color:#f92672">+</span><span style="color:#ae81ff">0x31</span>
+CPU Reset (CPU <span style="color:#ae81ff">0</span>)
+</code></pre></div><p><em><strong>Of course!</strong></em></p>
+<p>Thaaaat&rsquo;s what a VLA is! I remember watching the check being implemented in a video, but I was completely under the wrong impression that it was some out-of-bounds access checking or something. But no, a VLA is a <em>variable</em> length array. Supposedly some relic feature from C99, it behaved exactly how I expected, resizing the stack frame dynamically. But hold on, &ldquo;sizing&rdquo; a stack frame isn&rsquo;t really more than just <code>sub esp</code>&hellip; and now with the value we passed in. Awesome, we have a stack overflow! But how can we cleanly use it then exit out of the function? Just having the stack pointer won&rsquo;t be of much use if it just blows up right after. The next time it uses the whole buffer is at these lines:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp"><span style="color:#66d9ef">if</span> (payload <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">!</span>payload<span style="color:#f92672">-&gt;</span>read(tcp_packet.payload(), payload_size))
+    <span style="color:#66d9ef">return</span> EFAULT;
+</code></pre></div><p>Hmm. That&rsquo;s not good. If it reads into the entire buffer it&rsquo;ll definitely break something, or at the very least write to the guard page next to the stack. But wait, this is a safe read, and who says our user buffer actually has to be as long as we say it is? Sure, our buffer + length will be in <em>userspace</em>, but there&rsquo;s no gaurantee our process actually owns it. So all we have to do is pass in a mapped region of whatever size we like, tell <code>send()</code> it&rsquo;s actually massive, then <code>send()</code> will allocate that huge buffer and when it attempts to copy into it, it&rsquo;ll safely fault before it can write too much.</p>
+<p>Boom, arbitrary write! I <a href="https://github.com/SerenityOS/serenity/issues/5310">reported</a> the issue and began work on exploitation. (Interestingly, the exact same vulnerability existed in <a href="https://github.com/SerenityOS/serenity/commit/9ae02d4c926d332747ce574ab35cba4c062b862d">UDP sockets</a>, too).</p>
+<h1 id="exploitation">Exploitation</h1>
+<p>There are limitless ways to exploit a write primitive, but I&rsquo;ll share the path I went down. My initial thoughts were to directly write to the current process object&rsquo;s UID etc. and escalate our privelages that way, but very quickly the issue of write accuracy arose. While we could write to nearly any offset from the current stack pointer, there was <em>no</em> gaurentee where either</p>
+<ul>
+<li>the base of the stack</li>
+<li>the process object</li>
+</ul>
+<p>was in memory. It&rsquo;s not exactly KASLR, but the other processes clogging the space and just general system noise makes it very difficult to pinpoint where exactly our targets were, thus making it hard to calculate the offset.</p>
+<p>Okay, what about staying inside the realm of the stack? Unforunately, we can only write to an offset below the current position (as is the nature of a downward growing stack), so we can&rsquo;t just overwrite something critical in our own frame like the return pointer to get EIP control. But&hellip; what about another stack?</p>
+<h3 id="jumping-stacks-and-the-scheduler">Jumping stacks and the scheduler</h3>
+<p>Something I did notice while observing the stack offsets was that when creating stacks for new proccesses, it would lay them out sequentially in memory.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp"><span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>[<span style="color:#960050;background-color:#1e0010">#</span><span style="color:#ae81ff">0</span> SystemServer(<span style="color:#ae81ff">5</span><span style="color:#f92672">:</span><span style="color:#ae81ff">5</span>)]<span style="color:#f92672">:</span> Created kernel stack: <span style="color:#ae81ff">0xc35df000</span>
+[<span style="color:#960050;background-color:#1e0010">#</span><span style="color:#ae81ff">0</span> SystemServer(<span style="color:#ae81ff">5</span><span style="color:#f92672">:</span><span style="color:#ae81ff">5</span>)]<span style="color:#f92672">:</span> Created kernel stack: <span style="color:#ae81ff">0xc35f0000</span>
+[<span style="color:#960050;background-color:#1e0010">#</span><span style="color:#ae81ff">0</span> SystemServer(<span style="color:#ae81ff">5</span><span style="color:#f92672">:</span><span style="color:#ae81ff">5</span>)]<span style="color:#f92672">:</span> Created kernel stack: <span style="color:#ae81ff">0xc3601000</span>
+[<span style="color:#960050;background-color:#1e0010">#</span><span style="color:#ae81ff">0</span> SystemServer(<span style="color:#ae81ff">5</span><span style="color:#f92672">:</span><span style="color:#ae81ff">5</span>)]<span style="color:#f92672">:</span> Created kernel stack: <span style="color:#ae81ff">0xc3612000</span>
+<span style="color:#75715e">//...
+</span></code></pre></div><p>The delta between these addresses is <code>0x11000</code> which is just the stack size,<code>0x10000</code> (pretty large for a kernel stack?), plus a guard page, <code>0x1000</code>. This presents a pretty interesting opporunity - we can reliably influence a stack that&rsquo;s not in our current execution context. Furthermore, if that other stack is just our own forked process, <em>we can control what the victim&rsquo;s stack will look like</em>.</p>
+<p>We&rsquo;re not in clear water yet. There&rsquo;s two main issues preventing us from just taking control of a return pointer. First, there&rsquo;s a bit of code that&rsquo;s ran each time we make a syscall:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp"><span style="color:#75715e">// Apply a random offset in the range 0-255 to the stack pointer,
+</span><span style="color:#75715e">// to make kernel stacks a bit less deterministic.
+</span><span style="color:#75715e">// Since this is very hot code, request random data in chunks instead of
+</span><span style="color:#75715e">// one byte at a time. This is a noticeable speedup.
+</span><span style="color:#75715e"></span><span style="color:#66d9ef">if</span> (g_random_byte_buffer_offset <span style="color:#f92672">==</span> RandomByteBufferSize) {
+    get_fast_random_bytes(g_random_byte_buffer, RandomByteBufferSize);
+    g_random_byte_buffer_offset <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+}
+</code></pre></div><p>It randomizes the stack pointer :( It&rsquo;s not hugely random, we are in a 32-bit environment after all, but it made me worried that return pointer overwrites were out of question now. If there was a stack cookie, we would run the risk of missing our target and hitting that instead, probably faulting the system.</p>
+<p>Here I got kind of sidetracked. Not only did most of the kernel functions not have a stack protector, but the randomness was so insignificant I could have just ignored it. Instead, I decided to explore the randomness itself. The name of the function it called caught my eye, <code>get_fast_random_bytes</code>, because it implies there&rsquo;s a not so fast version, and if there are slower/faster varients of something dealing with cryptography, the faster one is almost always less secure.</p>
+<p>So let&rsquo;s look at the random implementation:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp"><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">get_fast_random_bytes</span>(u8<span style="color:#f92672">*</span> buffer, size_t buffer_size)
+{
+    <span style="color:#75715e">// Try to get good randomness, but don&#39;t block if we can&#39;t right now
+</span><span style="color:#75715e"></span>    <span style="color:#75715e">// and allow falling back to fast randomness
+</span><span style="color:#75715e"></span>    <span style="color:#66d9ef">auto</span> result <span style="color:#f92672">=</span> get_good_random_bytes(buffer, buffer_size, false, true);
+    ASSERT(result);
+}
+</code></pre></div><p>Hm, so it&rsquo;s just calling the normal &ldquo;good&rdquo; random but won&rsquo;t block? Let&rsquo;s look at the function it&rsquo;s referring to.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp"><span style="color:#66d9ef">bool</span> <span style="color:#a6e22e">get_good_random_bytes</span>(u8<span style="color:#f92672">*</span> buffer, size_t buffer_size, <span style="color:#66d9ef">bool</span> allow_wait, <span style="color:#66d9ef">bool</span> fallback_to_fast)
+{
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>    <span style="color:#66d9ef">auto</span><span style="color:#f92672">&amp;</span> kernel_rng <span style="color:#f92672">=</span> KernelRng<span style="color:#f92672">::</span>the();
+    <span style="color:#66d9ef">if</span> (can_wait <span style="color:#f92672">&amp;&amp;</span> allow_wait) {
+        <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>    } <span style="color:#66d9ef">else</span> {
+        <span style="color:#75715e">// We can&#39;t wait/block here, or we are not allowed to block/wait
+</span><span style="color:#75715e"></span>        <span style="color:#66d9ef">if</span> (kernel_rng.resource().get_random_bytes(buffer, buffer_size)) {
+            <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>        } <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> (fallback_to_fast) {
+            do_get_fast_random_bytes(buffer, buffer_size);
+        }
+    }
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>}
+</code></pre></div><p>Looks to do as claimed. If the regular <code>get_random_bytes</code> function returns false somehow - I guess when it&rsquo;s &ldquo;busy&rdquo; - then it&rsquo;ll finally call the less secure variant, which if we take a look at:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp"><span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">do_get_fast_random_bytes</span>(u8<span style="color:#f92672">*</span> buffer, size_t buffer_size)
+{
+    <span style="color:#66d9ef">static</span> Atomic<span style="color:#f92672">&lt;</span>u32, AK<span style="color:#f92672">::</span>MemoryOrder<span style="color:#f92672">::</span>memory_order_relaxed<span style="color:#f92672">&gt;</span> next <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>;
+
+    <span style="color:#66d9ef">union</span> {
+        u8 bytes[<span style="color:#ae81ff">4</span>];
+        u32 value;
+    } u;
+    size_t offset <span style="color:#f92672">=</span> <span style="color:#ae81ff">4</span>;
+    <span style="color:#66d9ef">for</span> (size_t i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> buffer_size; <span style="color:#f92672">++</span>i) {
+        <span style="color:#66d9ef">if</span> (offset <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">4</span>) {
+            <span style="color:#66d9ef">auto</span> current_next <span style="color:#f92672">=</span> next.load();
+            <span style="color:#66d9ef">for</span> (;;) {
+                <span style="color:#66d9ef">auto</span> new_next <span style="color:#f92672">=</span> current_next <span style="color:#f92672">*</span> <span style="color:#ae81ff">1103515245</span> <span style="color:#f92672">+</span> <span style="color:#ae81ff">12345</span>;
+                <span style="color:#66d9ef">if</span> (next.compare_exchange_strong(current_next, new_next)) {
+                    u.value <span style="color:#f92672">=</span> new_next;
+                    <span style="color:#66d9ef">break</span>;
+                }
+            }
+            offset <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+        }
+        buffer[i] <span style="color:#f92672">=</span> u.bytes[offset<span style="color:#f92672">++</span>];
+    }
+}
+</code></pre></div><p>it&rsquo;s just a <a href="https://en.wikipedia.org/wiki/Linear_congruential_generator">Linear Congruent Generator</a>, which is laughably insecure. So if we can make the kernel&rsquo;s random constantly &ldquo;busy&rdquo;, we can crack the random bytes it will generate for the stack offset.</p>
+
+      </div>
+    </article>
+
+    <hr />
+
+    <div class="post-info">
+      
+    <p>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-tag meta-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7" y2="7"></line></svg>
+
+        <span class="tag"><a href="https://example.com/tags/development/">development</a></span>
+        <span class="tag"><a href="https://example.com/tags/hacking/">hacking</a></span>
+        <span class="tag"><a href="https://example.com/tags/sernityos/">sernityos</a></span>
+        <span class="tag"><a href="https://example.com/tags/kernel/">kernel</a></span>
+        <span class="tag"><a href="https://example.com/tags/lpe/">LPE</a></span>
+        
+    </p>
+
+      
+    <p>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-folder meta-icon"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+
+        <span class="tag"><a href="https://example.com/categories/hacking/">Hacking</a></span>
+        <span class="tag"><a href="https://example.com/categories/kernel/">Kernel</a></span>
+        
+    </p>
+
+
+      <p>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        2349 Words
+      </p>
+
+      <p>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-calendar">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+        
+          2021-02-01 19:00
+        
+
+         
+          
+        
+      </p>
+    </div>
+      <hr />
+      <div class="sharing-buttons">
+        
+<a class="resp-sharing-button__link" href="https://facebook.com/sharer/sharer.php?u=https%3a%2f%2fexample.com%2fposts%2f2021%2f02%2fserenityos-kernel-hacking-adventures%2f" target="_blank" rel="noopener" aria-label="" title="Share on facebook">
+  <div class="resp-sharing-button resp-sharing-button--facebook resp-sharing-button--small"><div aria-hidden="true" class="resp-sharing-button__icon resp-sharing-button__icon--solid">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+    </div>
+  </div>
+</a>
+
+
+<a class="resp-sharing-button__link" href="https://twitter.com/intent/tweet/?url=https%3a%2f%2fexample.com%2fposts%2f2021%2f02%2fserenityos-kernel-hacking-adventures%2f" target="_blank" rel="noopener" aria-label="" title="Share on twitter">
+  <div class="resp-sharing-button resp-sharing-button--twitter resp-sharing-button--small">
+      <div aria-hidden="true" class="resp-sharing-button__icon resp-sharing-button__icon--solid">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"></path></svg>
+    </div>
+  </div>
+</a>
+
+
+<a class="resp-sharing-button__link" href="https://www.tumblr.com/widgets/share/tool?posttype=link&amp;title=SerenityOS%3a%20Kernel%20Hacking%20Adventures&amp;caption=SerenityOS%3a%20Kernel%20Hacking%20Adventures&amp;canonicalUrl=https%3a%2f%2fexample.com%2fposts%2f2021%2f02%2fserenityos-kernel-hacking-adventures%2f" target="_blank" rel="noopener" aria-label="" title="Share on tumblr">
+  <div class="resp-sharing-button resp-sharing-button--tumblr resp-sharing-button--small">
+    <div aria-hidden="true" class="resp-sharing-button__icon resp-sharing-button__icon--solid">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.563 24c-5.093 0-7.031-3.756-7.031-6.411V9.747H5.116V6.648c3.63-1.313 4.512-4.596 4.71-6.469C9.84.051 9.941 0 9.999 0h3.517v6.114h4.801v3.633h-4.82v7.47c.016 1.001.375 2.371 2.207 2.371h.09c.631-.02 1.486-.205 1.936-.419l1.156 3.425c-.436.636-2.4 1.374-4.156 1.404h-.178l.011.002z"/></svg>
+    </div>
+  </div>
+</a>
+
+
+<a class="resp-sharing-button__link" href="mailto:?subject=SerenityOS%3a%20Kernel%20Hacking%20Adventures&amp;body=https%3a%2f%2fexample.com%2fposts%2f2021%2f02%2fserenityos-kernel-hacking-adventures%2f" target="_self" rel="noopener" aria-label="" title="Share via email">
+  <div class="resp-sharing-button resp-sharing-button--email resp-sharing-button--small"><div aria-hidden="true" class="resp-sharing-button__icon resp-sharing-button__icon--solid">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+    </div>
+  </div>
+</a>
+
+
+<a class="resp-sharing-button__link" href="https://pinterest.com/pin/create/button/?url=https%3a%2f%2fexample.com%2fposts%2f2021%2f02%2fserenityos-kernel-hacking-adventures%2f&amp;media=https%3a%2f%2fexample.com%2fposts%2f2021%2f02%2fserenityos-kernel-hacking-adventures%2f;description=SerenityOS%3a%20Kernel%20Hacking%20Adventures" target="_blank" rel="noopener" aria-label="" title="Share on pinterest">
+  <div class="resp-sharing-button resp-sharing-button--pinterest resp-sharing-button--small"><div aria-hidden="true" class="resp-sharing-button__icon resp-sharing-button__icon--solid">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.401.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.354-.629-2.758-1.379l-.749 2.848c-.269 1.045-1.004 2.352-1.498 3.146 1.123.345 2.306.535 3.55.535 6.607 0 11.985-5.365 11.985-11.987C23.97 5.39 18.592.026 11.985.026L12.017 0z"/></svg>
+    </div>
+  </div>
+</a>
+
+
+<a class="resp-sharing-button__link" href="https://www.linkedin.com/shareArticle?mini=true&amp;url=https%3a%2f%2fexample.com%2fposts%2f2021%2f02%2fserenityos-kernel-hacking-adventures%2f&amp;title=SerenityOS%3a%20Kernel%20Hacking%20Adventures&amp;summary=SerenityOS%3a%20Kernel%20Hacking%20Adventures&amp;source=https%3a%2f%2fexample.com%2fposts%2f2021%2f02%2fserenityos-kernel-hacking-adventures%2f" target="_blank" rel="noopener" aria-label="" title="Share on linkedin">
+  <div class="resp-sharing-button resp-sharing-button--linkedin resp-sharing-button--small"><div aria-hidden="true" class="resp-sharing-button__icon resp-sharing-button__icon--solid">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>
+    </div>
+  </div>
+</a>
+
+
+<a class="resp-sharing-button__link" href="https://reddit.com/submit/?url=https%3a%2f%2fexample.com%2fposts%2f2021%2f02%2fserenityos-kernel-hacking-adventures%2f&amp;resubmit=true&amp;title=SerenityOS%3a%20Kernel%20Hacking%20Adventures" target="_blank" rel="noopener" aria-label="" title="Share on reddit">
+  <div class="resp-sharing-button resp-sharing-button--reddit resp-sharing-button--small"><div aria-hidden="true" class="resp-sharing-button__icon resp-sharing-button__icon--solid">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/></svg>
+    </div>
+  </div>
+</a>
+
+
+<a class="resp-sharing-button__link" href="https://www.xing.com/app/user?op=share;url=https%3a%2f%2fexample.com%2fposts%2f2021%2f02%2fserenityos-kernel-hacking-adventures%2f;title=SerenityOS%3a%20Kernel%20Hacking%20Adventures" target="_blank" rel="noopener" aria-label="" title="Share on xing">
+  <div class="resp-sharing-button resp-sharing-button--xing resp-sharing-button--small"><div aria-hidden="true" class="resp-sharing-button__icon resp-sharing-button__icon--solid">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M18.188 0c-.517 0-.741.325-.927.66 0 0-7.455 13.224-7.702 13.657.015.024 4.919 9.023 4.919 9.023.17.308.436.66.967.66h3.454c.211 0 .375-.078.463-.22.089-.151.089-.346-.009-.536l-4.879-8.916c-.004-.006-.004-.016 0-.022L22.139.756c.095-.191.097-.387.006-.535C22.056.078 21.894 0 21.686 0h-3.498zM3.648 4.74c-.211 0-.385.074-.473.216-.09.149-.078.339.02.531l2.34 4.05c.004.01.004.016 0 .021L1.86 16.051c-.099.188-.093.381 0 .529.085.142.239.234.45.234h3.461c.518 0 .766-.348.945-.667l3.734-6.609-2.378-4.155c-.172-.315-.434-.659-.962-.659H3.648v.016z"/></svg>
+    </div>
+  </div>
+</a>
+
+
+<a class="resp-sharing-button__link" href="whatsapp://send?text=SerenityOS%3a%20Kernel%20Hacking%20Adventures%20https%3a%2f%2fexample.com%2fposts%2f2021%2f02%2fserenityos-kernel-hacking-adventures%2f" target="_blank" rel="noopener" aria-label="" title="Share on whatsapp">
+  <div class="resp-sharing-button resp-sharing-button--whatsapp resp-sharing-button--small"><div aria-hidden="true" class="resp-sharing-button__icon resp-sharing-button__icon--solid">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+    </div>
+  </div>
+</a>
+
+
+<a class="resp-sharing-button__link" href="https://news.ycombinator.com/submitlink?u=https%3a%2f%2fexample.com%2fposts%2f2021%2f02%2fserenityos-kernel-hacking-adventures%2f&amp;t=SerenityOS%3a%20Kernel%20Hacking%20Adventures" target="_blank" rel="noopener" aria-label="" title="Share on hacker news">
+  <div class="resp-sharing-button resp-sharing-button--hackernews resp-sharing-button--small"><div aria-hidden="true" class="resp-sharing-button__icon resp-sharing-button__icon--solid">
+			<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M0 24V0h24v24H0zM6.951 5.896l4.112 7.708v5.064h1.583v-4.972l4.148-7.799h-1.749l-2.457 4.875c-.372.745-.688 1.434-.688 1.434s-.297-.708-.651-1.434L8.831 5.896h-1.88z"/></svg>
+    </div>
+  </div>
+</a>
+
+
+<a class="resp-sharing-button__link" href="https://telegram.me/share/url?text=SerenityOS%3a%20Kernel%20Hacking%20Adventures&amp;url=https%3a%2f%2fexample.com%2fposts%2f2021%2f02%2fserenityos-kernel-hacking-adventures%2f" target="_blank" rel="noopener" aria-label="" title="Share on telegram">
+  <div class="resp-sharing-button resp-sharing-button--telegram resp-sharing-button--small"><div aria-hidden="true" class="resp-sharing-button__icon resp-sharing-button__icon--solid">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+    </div>
+  </div>
+</a>
+
+      </div>
+
+    
+
+
+    
+
+    
+
+  </main>
+
+            </div>
+
+            
+                <footer class="footer">
+    <div class="footer__inner">
+        <div class="footer__content">
+            <span>&copy; 2021</span>
+            <span><a href="https://example.com">Iliad S</a></span>
+            <span><a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></span><span><a href="https://example.com/posts/index.xml" target="_blank" title="rss"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg></a></span>
+        </div>
+    </div>
+    <div class="footer__inner">
+        <div class="footer__content">
+            <span>Powered by <a href="http://gohugo.io">Hugo</a></span>
+            <span>Made with &#10084; by <a href="https://github.com/ABigPickle">Iliad S</a></span>
+          </div>
+    </div>
+</footer>
+
+            
+        </div>
+
+        
+
+
+
+<script type="text/javascript" src="https://example.com/bundle.min.af435e44374f1e99a669ea8cd5bb9a2fceed80588941a451bfddb66b86a67c9f40b0f417e9543a763f809aa7e9300d7b1d69bf99615810ba02ac70396d50fad5.js" integrity="sha512-r0NeRDdPHpmmaeqM1buaL87tgFiJQaRRv922a4amfJ9AsPQX6VQ6dj&#43;AmqfpMA17HWm/mWFYELoCrHA5bVD61Q=="></script>
+
+
+
+    </body>
+</html>

